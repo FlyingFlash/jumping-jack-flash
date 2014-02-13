@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="44" height="74"  addedToStage="init(event)">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" verticalAlign="top" gap="2" paddingTop="1" />
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import spark.filters.DropShadowFilter;
+			private var _fnChangeListener:Function;
+
+			private function init(e:Event):void{
+				idNum.filters = [new DropShadowFilter(1,45,0,1.0,0,0,2,1)];
+				idNum.mouseEnabled = false;
+				idNum.mouseChildren = false;
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, handleKeyDown);
+				stage.addEventListener(KeyboardEvent.KEY_UP, handleKeyUp);
+			}
+			
+			private function handleKeyDown(e:KeyboardEvent):void{
+				if (e.keyCode == 17){
+					idAlpha.stepSize = 0.1;
+					idRatio.stepSize = 10;
+				}
+			}
+			
+			private function handleKeyUp(e:KeyboardEvent):void{
+				if (e.keyCode == 17){
+					idAlpha.stepSize = 0.01;
+					idRatio.stepSize = 1;
+				}
+			}
+			
+			public function set change(fnChangeListener:Function):void{
+				_fnChangeListener = fnChangeListener;
+			}
+			
+			protected function changeValue(event:Event):void
+			{
+				if (_fnChangeListener != null){
+					_fnChangeListener();
+				}
+			}
+			
+			public function set idNumber(n:int):void{
+				idNum.text = String(n);
+			}
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Group>
+		<mx:ColorPicker width="42" id="idColor" selectedColor="0xffffff" change="changeValue(event)"/>
+		<s:Label id="idNum" 
+				 y="5" x="9" width="22" height="12" 
+				 color="#FFFFFF" 
+				 backgroundAlpha="0.0" 
+				 verticalAlign="bottom" 
+				 textAlign="center" 
+				 backgroundColor="#FFFFFF" 
+				 />
+	</s:Group>
+	<s:NumericStepper id="idAlpha" minimum="0" maximum="1" stepSize="0.01" width="42" value="1" change="changeValue(event)"/>
+	<s:NumericStepper minimum="0" maximum="255" id="idRatio" stepSize="1" width="42" value="255" change="changeValue(event)" textAlign="center"/>
+</s:Group>
+

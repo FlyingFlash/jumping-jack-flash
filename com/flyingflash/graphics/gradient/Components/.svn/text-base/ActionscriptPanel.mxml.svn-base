@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="1000" height="200">
+	
+<fx:Declarations>
+	<!--  AS3 STRINGS   -->
+
+	<!--  GRADIENT TYPE AS3  -->
+	<s:ArrayCollection id="arrGradientTypeAS3">
+		<fx:String>GradientType.LINEAR</fx:String>
+		<fx:String>GradientType.RADIAL</fx:String>
+	</s:ArrayCollection>
+	
+	<!--  SPREAD METHOD AS3  -->
+	<s:ArrayCollection id="arrSpreadMethodAS3">
+		<fx:String>SpreadMethod.PAD</fx:String>
+		<fx:String>SpreadMethod.REFLECT</fx:String>
+		<fx:String>SpreadMethod.REPEAT</fx:String>
+	</s:ArrayCollection>
+
+	<!-- INTERPOLATION METHOD AS3 -->
+	<s:ArrayCollection id="arrInterpolationMethodAS3">
+		<fx:String>InterpolationMethod.LINEAR_RGB</fx:String>
+		<fx:String>InterpolationMethod.RGB</fx:String>
+	</s:ArrayCollection>
+
+	<!--  AS2 STRINGS   -->
+	
+	<!--  GRADIENT TYPE  AS2 -->
+	<s:ArrayCollection id="arrGradientTypeAS2">
+		<fx:String>linear</fx:String>
+		<fx:String>radial</fx:String>
+	</s:ArrayCollection>
+
+	<!--  SPREAD METHOD AS2  -->
+	<s:ArrayCollection id="arrSpreadMethodAS2">
+		<fx:String>pad</fx:String>
+		<fx:String>reflect</fx:String>
+		<fx:String>repeat</fx:String>
+	</s:ArrayCollection>
+	
+	
+	<!-- INTERPOLATION METHOD AS2 -->
+	<s:ArrayCollection id="arrInterpolationMethodAS2">
+		<fx:String>linearRGB</fx:String>
+		<fx:String>rgb</fx:String>
+	</s:ArrayCollection>
+	
+	
+	<!-- Templates for Actionscript text display -->  
+	
+	<fx:String id="idASMatrixTemplate">import flash.geom.Matrix;
+		
+		var matrix:Matrix = new Matrix()
+		matrix.createGradientBox(@BoxW, @BoxH, @BoxR, @BoxTX, @BoxTY);
+	</fx:String>
+	
+	
+	<fx:String id="idASColorsTemplate">
+		var colors:Array = [@Colors];
+		var alphas:Array = [@Alphas];
+		var ratios:Array = [@Ratios];
+	</fx:String>
+	
+	
+	<fx:String id="idAS3FillTemplate">
+		var myShape:Shape = new Shape();
+		addChild(myShape);
+		myShape.graphics.beginGradientFill(@FillType, colors, alphas, ratios, @Matrix, @FillSpread, @FillInt, @FillFoc);
+		myShape.graphics.@Shape(0, 0, @Width, @Height);
+		myShape.graphics.endFill();
+	</fx:String>
+	
+	<fx:String id="idAS2FillTemplate">
+		this.createEmptyMovieClip("myShape", this.getNextHighestDepth());
+		myShape.beginGradientFill("@FillType", colors, alphas, ratios, @Matrix, "@FillSpread", "@FillInt", @FillFoc);
+		myShape.@Shape(0, 0, @Width, @Height);
+		myShape.endFill();
+	</fx:String>
+
+	<fx:String id="idAS2Prototypes"><![CDATA[MovieClip.prototype.drawEllipse = function (left, top, width, height) 
+	 {
+	 	var A = 0;
+	 	var radiusX  = width/2;
+	 	var radiusY = height/2;
+	 	var x = left+radiusX;
+	 	var y = top+radiusY;
+	 	var aX = radiusX/Math.cos(Math.PI/8);
+	 	var aY = radiusY/Math.cos(Math.PI/8);
+	 	var cx, cy, ax, ay;
+	 	this.moveTo(x + radiusX, y);
+	 	for (var i = 0; i < 8; i++) {
+	 		A += Math.PI/4;
+	 		cx = x + aX * Math.cos(A-(Math.PI/8));
+	 		cy = y + aY * Math.sin(A-(Math.PI/8));
+	 		ax = x + Math.cos(A)*radiusX;
+	 		ay = y + Math.sin(A)*radiusY;
+	 		this.curveTo(cx, cy, ax, ay);
+	 	}
+	 }
+		
+			
+	 MovieClip.prototype.drawRect = function (left, top, width, height) 
+	 {
+	 	this.moveTo(left,top);
+	 	this.lineTo(width, top);
+	 	this.lineTo(width, height);
+	 	this.lineTo(left, height);	
+	 }
+
+]]>		
+	</fx:String>
+
+		
+</fx:Declarations>
+	
+
+
+<fx:Script>
+	<![CDATA[
+		
+		private var _shape:Object;
+		private var _matrix:Object;
+		private var _fill:Object;
+		
+		private function fillMatrixTemplate():String
+		{
+			if (_fill.matrix != "null"){
+				var temp:String = idASMatrixTemplate;
+				temp = temp.replace("@BoxW", String(_matrix.width)); 
+				temp = temp.replace("@BoxH", String(_matrix.height)); 
+				temp = temp.replace("@BoxR", String(Math.round(100*_matrix.rotation * Math.PI/180)/100)); 
+				temp = temp.replace("@BoxTX", String(_matrix.TX)); 
+				temp = temp.replace("@BoxTY", String(_matrix.TY));
+				return temp;
+			}
+			return "";
+		}
+		
+		private function fillColorsTemplate(AS2:Boolean = false):String
+		{
+			var temp:String = idASColorsTemplate;
+			var colors:String = "", alphas:String = "", ratios:String = "";
+			var len:int = _fill.array.length;
+			for (var i:int=0; i<len; i++){
+				colors += "0x" + _fill.array[i].idColor.selectedColor.toString(16) + ((i<len-1)?",":"");
+				alphas += _fill.array[i].idAlpha.value * (AS2?100:1) + ((i<len-1)?",":"");
+				ratios += _fill.array[i].idRatio.value + ((i<len-1)?",":"");
+			}
+			temp = temp.replace("@Colors",colors);
+			temp = temp.replace("@Alphas",alphas);
+			temp = temp.replace("@Ratios",ratios);
+			return temp;
+		}
+		
+		
+		private function fillAS3Template():String
+		{
+			var temp:String = fillMatrixTemplate() + fillColorsTemplate() + idAS3FillTemplate;
+			// strip out tabs (inserted in template definition for readability)
+			temp = temp.replace(/\t/g, "");
+			// beginGradientFill
+			temp = temp.replace("@FillType",arrGradientTypeAS3[_fill.gradientType]); 
+			temp = temp.replace("@Matrix",_fill.matrix);
+			temp = temp.replace("@FillSpread",arrSpreadMethodAS3[_fill.spreadMethod]); 
+			temp = temp.replace("@FillInt",arrInterpolationMethodAS3[_fill.interpolationMethod]); 
+			temp = temp.replace("@FillFoc",_fill.focalPoint);
+			// draw
+			temp = temp.replace("@Shape",_shape.type);
+			temp = temp.replace(/@Width/g,_shape.width);
+			temp = temp.replace(/@Height/g,_shape.height);
+			return temp;
+		}
+		
+		private function fillAS2Template():String
+		{
+			// strip out tabs (inserted in template definition for readability)
+			var temp:String = fillMatrixTemplate() + fillColorsTemplate(true) + idAS2FillTemplate;
+			// beginGradientFill
+			temp = temp.replace(/\t/g, "");
+			temp = temp.replace("@FillType",arrGradientTypeAS2[_fill.gradientType]); 
+			temp = temp.replace("@Matrix",_fill.matrix);
+			temp = temp.replace("@FillSpread",arrSpreadMethodAS2[_fill.spreadMethod]); 
+			temp = temp.replace("@FillInt",arrInterpolationMethodAS2[_fill.interpolationMethod]); 
+			temp = temp.replace("@FillFoc",_fill.focalPoint);
+			// draw
+			temp = temp.replace("@Shape",_shape.type);
+			temp = temp.replace(/@Width/g,_shape.width);
+			temp = temp.replace(/@Height/g,_shape.height);
+			return temp;
+		}
+		
+		protected function copyToClipboard(event:MouseEvent):void
+		{
+			if (idAS2.selected){
+				var temp:String = idAS2Prototypes;
+				temp = temp.replace(/\t\x20/g, "");
+				idActionscriptText.text = temp + fillAS2Template();
+			}
+			System.setClipboard(idActionscriptText.text);
+			idActionscriptText.setStyle("color", 0x888888);
+			idActionscriptText.text = fillAS2Template();
+		}
+		
+		public function updateDisplay():void
+		{
+			idActionscriptText.setStyle("color", 0x000000);
+			if (idAS3.selected){
+				idActionscriptText.text = fillAS3Template();
+			}else{
+				idActionscriptText.text = fillAS2Template();
+			}
+		}
+		
+		public function setParams(shape:Object, matrix:Object, fill:Object):void
+		{
+			_shape = shape;
+			_matrix = matrix;
+			_fill = fill;
+		}
+		
+
+	]]>		
+</fx:Script>
+
+	<!--                     ACTIONSCRIPT PANEL LAYOUT                        -->
+	<s:Panel id="idActionscript"
+			 title="Actionscript"
+			 width="100%"
+			 height="100%"
+			 textAlign="center" 
+			 dropShadowVisible="false">
+		
+		<s:HGroup x="10" y="-26" verticalAlign="middle">
+		<s:RadioButton id="idAS3" label ="AS3" groupName="AS" selected="true" click="updateDisplay()"/>			
+		<s:RadioButton id="idAS2" label="AS2" groupName="AS" selected="true" click="updateDisplay()"/>			
+		<s:Button label="Copy" click="copyToClipboard(event)"/>
+		</s:HGroup>
+		
+		<s:TextArea id="idActionscriptText"
+						x="10"
+						width="100%" height="95%" 
+						textAlign ="left" verticalAlign="top" 
+						editable="false"
+						enabled="true" 
+						contentBackgroundColor="#ffbbbb"/> 
+ 
+		
+	</s:Panel>
+ 
+	
+</s:Group>

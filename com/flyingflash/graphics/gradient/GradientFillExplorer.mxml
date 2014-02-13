@@ -1,0 +1,833 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" 
+					   xmlns:ns1="*" 
+					   xmlns:Components="Components.*"
+					   applicationComplete="init()" 
+					   
+					   backgroundColor="#747474" 
+					   height="900" 
+					   width="990"
+					   showStatusBar="false"
+					   resize="handleApplicationResize()">
+	<fx:Style source="GradientFillExplorer.css"/>
+	
+	<fx:Declarations>
+		<!-- SHAPE TO DRAW  -->
+		<fx:Object id="Shape" rectangle="0" ellipse="1"/>
+		<s:ArrayCollection id="arrShapeLabels">
+			<fx:String>RECTANGLE</fx:String>
+			<fx:String>ELLIPSE</fx:String>
+		</s:ArrayCollection>
+		
+		<s:ArrayCollection id="arrShapeDrawScript">
+			<fx:String>drawRect</fx:String>
+			<fx:String>drawEllipse</fx:String>
+		</s:ArrayCollection>
+		
+		<!--  GRADIENT TYPE  -->
+		<!-- Item for dropdown list display, and for string parameter when made lowercase -->  
+		<fx:Object id="Gradient" linear="0" radial="1"/>
+		<s:ArrayCollection id="arrGradientTypeText">
+			<fx:String>"LINEAR"</fx:String>
+			<fx:String>"RADIAL"</fx:String>
+		</s:ArrayCollection>
+		
+		<!-- String for actionscript text display -->  
+		<s:ArrayCollection id="arrGradientTypeAS3">
+			<fx:String>GradientType.LINEAR</fx:String>
+			<fx:String>GradientType.RADIAL</fx:String>
+		</s:ArrayCollection>
+		
+		
+		<!--  SPREAD METHOD  -->
+		<!-- Item for dropdown list display, and for string parameter when made lowercase -->  
+		<fx:Object id="Spread" pad="0" reflect="1" repeat="2"/>
+		<s:ArrayCollection id="arrSpreadMethodText">
+			<fx:String>PAD</fx:String>
+			<fx:String>REFLECT</fx:String>
+			<fx:String>REPEAT</fx:String>
+		</s:ArrayCollection>
+
+		<!-- String for actionscript text display -->  
+		<s:ArrayCollection id="arrSpreadMethodAS3">
+			<fx:String>SpreadMethod.PAD</fx:String>
+			<fx:String>SpreadMethod.REFLECT</fx:String>
+			<fx:String>SpreadMethod.REPEAT</fx:String>
+		</s:ArrayCollection>
+		
+		<!-- INTERPOLATION METHOD -->
+		<!-- item for dropdown list display -->  
+		<fx:Object id="Interpolate" linearRGB = "0" rgb="1"/>
+		<s:ArrayCollection id="arrInterpolationMethodText">
+			<fx:String>LINEAR_RGB</fx:String>
+			<fx:String>RGB</fx:String>
+		</s:ArrayCollection>
+		
+		<!-- this extra array needed because the coresponding string is not just 
+		     a lower case version of the dropdown list item -->
+		<s:ArrayCollection id="arrInterpolationMethodString">
+			<fx:String>linearRGB</fx:String>
+			<fx:String>rgb</fx:String>
+		</s:ArrayCollection>
+		
+		<!-- String for actionscript text display -->  
+		<s:ArrayCollection id="arrInterpolationMethodAS3">
+			<fx:String>InterpolationMethod.LINEAR_RGB</fx:String>
+			<fx:String>InterpolationMethod.RGB</fx:String>
+		</s:ArrayCollection>
+		
+		<s:SolidColorStroke id="idWhiteStroke" color="0xffffff" weight="0"/>
+		
+		
+		<fx:XMLList id="idOptionsMenu">
+			<menuitem label="Options">
+				<menuitem label="Shape">
+					<menuitem id="idShowFrame" label="Show Shape Resize Frame" type="check" toggled="true" />
+					<menuitem id="idLockAspectRatio" label="Maintain Aspect Ratio" type="check" toggled="false"/>
+					<menuitem id="idLockSquare" label="Force Width=Height" type="check" toggled="false"/>
+				</menuitem>
+				<menuitem label="Gradient Box">
+					<menuitem id="idShowBoxOrigin" label="Show Draggable Gradient Box" type="check" toggled="true"/>
+					<menuitem id="idDragBoxOrigin" label="Free Drag Gradient Origin" type="radio" group="one" enabled="false" toggled="true"/>
+					<menuitem id="idLockOrigins" label="Lock Gradient Origin to Shape Origin" type="radio" enabled="false" group="one"/>
+					<menuitem id="idCenterBoxOnShape" label="Center Gradient Box on Shape" type="radio" enabled="false" group="one"/>
+					<menuitem id="idMatchBoxToShape" label="Match Gradient Box to Shape" type="radio" enabled="false" group="one"/>
+				</menuitem>
+				<menuitem type="separator"/>
+			</menuitem>
+		</fx:XMLList>
+		
+
+	</fx:Declarations>
+	
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import Components.ResizeFrame;
+			
+			import mx.controls.Menu;
+			import mx.events.ColorPickerEvent;
+			import mx.events.MenuEvent;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.filters.GlowFilter;
+			
+			private var _numberOfColors:int;
+			private var _colors:Array = [];
+			private var _lockout:Boolean = false;
+			private var _mouseDragOffset:Point = new Point();
+			private var _dragObject:*;
+			private var _shapeParams:Object = new Object();
+			private var _matrixParams:Object = new Object();
+			private var _fillParams:Object = new Object();
+			
+			private var gf:spark.filters.GlowFilter = new GlowFilter(0,0.5,7,7,1,4,true); 
+			
+			private var bLockOrigins:Boolean = false;
+			private var bDragBoxOrigin:Boolean = false;
+			private var bCenterBoxOnShape:Boolean = false;
+			private var bMatchBoxToShape:Boolean = false;
+			
+//			private var idActionscript:Object = new Object();
+			
+			private function init():void{
+				idColorsContainer.filters = 
+					idControlsContainer.filters = 
+					idResult.filters = 
+					idActionscript.filters = [gf];
+
+				fillColor1.idNum.text = "1";
+				fillColor2.idNum.text = "2";
+				fillColor1.idColor.selectedColor = 0x00000;
+				fillColor2.idColor.selectedColor = 0xff0000;
+				
+				fillColor1.idRatio.value = 0;
+				_colors.push(fillColor1);
+				_colors.push(fillColor2);
+				
+				idShapeWidth.value = 300;
+				idShapeHeight.value = 300;				
+				updateFrameFromShape();
+				idShape.addEventListener(MouseEvent.MOUSE_DOWN, handleShapeMouseDown);
+
+				this.maxHeight = idControlPanels.height + idActionscript.height + idMainLayout.paddingTop + idMainLayout.paddingBottom + idMainLayout.gap ;
+				this.minWidth = 640;
+				this.minHeight = 480;
+				
+				drawMatrixOrigin();
+				createResultMask();
+				handleApplicationResize();
+			}
+			// END init()
+			
+			
+			
+			private function handleMenu(e:MenuEvent):void
+			{
+				var bToggled:Boolean = Boolean(e.item.@toggled == "true");
+				switch(String(e.item.@id)){
+					case "idShowFrame":
+						idResizeFrame.visible = bToggled;
+						break;
+					case "idShowBoxOrigin":
+						idMatrixOrigin.visible = bToggled;
+						break;
+					case "idDragBoxOrigin":
+						bDragBoxOrigin  = bToggled;
+						break;
+					case "idLockOrigins":
+						bLockOrigins = bToggled;
+						break;
+					case "idCenterBoxOnShape":
+						bCenterBoxOnShape = bToggled;
+						break;
+				}
+			}
+			private function handleStartDragInResult(e:MouseEvent):void{
+				_dragObject = e.currentTarget; 
+				//_dragObject.startDrag(false, new Rectangle(0,0,idResult.width-_dragObject.width, idResult.height-_dragObject.height - idResult.titleDisplay.height));
+				_dragObject.startDrag(false,getDragContraintsInResult(_dragObject));
+				stage.addEventListener(MouseEvent.MOUSE_UP, handleStopDrag);
+			}
+			
+			
+			private function handleShapeMouseDown(e:MouseEvent):void{
+				idShape.startDrag(false, new Rectangle(0,0,idResult.width-idShapeWidth.value, idResult.height-idShapeHeight.value /*- idResult.titleDisplay.height*/));
+				stage.addEventListener(MouseEvent.MOUSE_UP, handleStageMouseUp);
+				stage.addEventListener(MouseEvent.MOUSE_MOVE, handleShapeMove);
+			}
+			
+			private function handleShapeMove(e:MouseEvent):void{
+				e.updateAfterEvent();
+				updateFrameFromShape();
+			}
+			
+			private function handleStageMouseUp(e:MouseEvent):void{
+				idShape.stopDrag();
+				stage.removeEventListener(MouseEvent.MOUSE_MOVE, handleShapeMove);
+				//idResult.removeEventListener(MouseEvent.MOUSE_MOVE, handleMatrixOriginMove);				
+			}
+			
+			
+			protected function addRemoveColors():void
+			{
+				if (!_lockout){
+					_lockout = true;
+					if (idArraySize.value > _colors.length){
+						for(var i:int = _colors.length; i < idArraySize.value; i++){ 
+							var car:ColorAlphaRatio = new ColorAlphaRatio();
+							car.idNum.text = String(idArraySize.value);
+							car.change = updateChange;
+							idGroupColors.addElement(car);
+							_colors.push(car);
+						}
+					}else{
+						for(i = _colors.length; i > idArraySize.value; i--){ 
+							idGroupColors.removeElement(_colors[_colors.length-1]);
+							_colors.pop();
+						}
+					}
+					updateChange();
+					_lockout=false;
+				}
+			}
+			
+			private function updateActionscript():void
+			{
+				if (_colors.length == 0) return;
+
+				_shapeParams.type = arrShapeDrawScript[idDrawShape.selectedIndex];
+				_shapeParams.width = idShapeWidth.value;
+				_shapeParams.height = idShapeHeight.value;
+
+				_matrixParams.width = idBoxWidth.value;
+				_matrixParams.height = idBoxHeight.value;
+				_matrixParams.rotation = idBoxRotation.value;
+				_matrixParams.TX = idBoxTX.value;
+				_matrixParams.TY = idBoxTY.value;
+				
+				_fillParams.gradientType = idGradientType.selectedIndex;
+				_fillParams.array = _colors;
+				_fillParams.matrix = idMatrixNull.selected?"null":"matrix";
+				_fillParams.spreadMethod = idSpreadMethod.selectedIndex;
+				_fillParams.interpolationMethod = idInterpolationMethod.selectedIndex;
+				_fillParams.focalPoint  = idFocalPoint.value;
+				
+				idActionscript.setParams(_shapeParams, _matrixParams, _fillParams);
+				idActionscript.updateDisplay();
+			}
+			
+			
+			
+			private function updateShapeSize():void{
+				updateChange();
+				updateFrameFromShape();
+			}
+			
+			private function updateMatrixOrigin():void
+			{
+				//idMatrixOrigin.rotation = idBoxRotation.value;
+				idMatrixOrigin.x = idShape.x + idBoxTX.value;
+				idMatrixOrigin.y = idShape.y + idBoxTY.value; trace(573, idMatrixOrigin.y, idShape.y)
+				idMatrixOrigin.update(idBoxWidth.value, idBoxHeight.value);
+				updateChange();
+			}
+			
+			private function updateMatrixFromOrigin():void
+			{
+				idBoxTX.value = idMatrixOrigin.x - idShape.x; 
+				idBoxTY.value = idMatrixOrigin.y - idShape.y; 
+				updateChange();
+				idBoxWidth.value = idMatrixOrigin.boxWidth;
+				idBoxHeight.value = idMatrixOrigin.boxHeight;
+				updateChange();
+			}
+			
+			
+/*			private function updateBoxTXTY():void
+			{
+				idBoxTX.value = idMatrixOrigin.x - idShape.x; 
+				idBoxTY.value = idMatrixOrigin.y - idShape.y; 
+				updateChange();
+			}
+*/			
+			
+			
+			private function updateChange():void{
+				idShapeHeight.enabled = idDrawShape.selectedIndex==Shape.rectangle || idDrawShape.selectedIndex==Shape.ellipse; 
+//				idFocalPoint.enabled = idGradientType.selectedIndex == Gradient.radial;
+				idMatrixPanel.enabled = !idMatrixNull.selected;
+				if (idMatchShapeSize.selected){
+					idBoxWidth.enabled = idBoxHeight.enabled = false;
+					idBoxWidth.value = idShapeWidth.value;
+					idBoxHeight.value = idShapeHeight.value;
+				}else{
+					idBoxWidth.enabled = idBoxHeight.enabled = true;	
+				}
+				
+				
+				//				if (idMatchShapePosition.selected){
+				if (bLockOrigins){
+					idBoxTX.enabled = idBoxTY.enabled = false;
+					idBoxTX.value = (idShapeWidth.value - idBoxWidth.value) / 2;;
+					idBoxTY.value = (idShapeHeight.value - idBoxHeight.value) / 2;;
+				}else{
+					idBoxTX.enabled = idBoxTY.enabled = true;	
+					//					idBoxTX.value = idMatrixOrigin.x - idShape.x;
+					//					idBoxTY.value = idMatrixOrigin.y - idShape.y;
+				}
+				
+				if (idMatrixNull.selected){
+					var matrix:Matrix = null;
+				}else{
+					if (matrix==null){
+						matrix=new Matrix();
+					}
+					matrix.createGradientBox( idBoxWidth.value, 
+						idBoxHeight.value, 
+						idBoxRotation.value * Math.PI/180, 
+						idBoxTX.value, idBoxTY.value);
+				}
+				
+				var colors:Array = [];
+				var alphas:Array = [];
+				var ratios:Array = [];
+				
+				var gradient:String = idGradientType.selectedItem.toLowerCase();
+				var spread:String = idSpreadMethod.selectedItem.toLowerCase();
+				var interpolation:String = arrInterpolationMethodString[ idInterpolationMethod.selectedIndex ];
+				
+				for (var i:int = 0; i<_colors.length; i++){
+					var c:uint = _colors[i].idColor.selectedColor;
+					var a:Number = _colors[i].idAlpha.value;
+					var r:int = _colors[i].idRatio.value;
+					colors.push(c);
+					alphas.push(a);
+					ratios.push(r);
+				}
+				
+				var focalPoint:Number = idFocalPoint.value;
+				idShape.graphics.clear();
+				idShape.graphics.beginGradientFill( gradient, colors, alphas, ratios, 
+					matrix, spread, interpolation, focalPoint);
+				switch(idDrawShape.selectedIndex){
+					case Shape.square :	idShapeHeight.value=idShapeWidth.value;						
+					case Shape.rectangle : 
+						idShape.graphics.drawRect(0,0,idShapeWidth.value,idShapeHeight.value);
+						break;
+					case Shape.ellipse : 
+						idShape.graphics.drawEllipse(0,0,idShapeWidth.value, idShapeHeight.value);
+						break;
+				}
+				idShape.graphics.endFill();
+				//updateFrameFromShape();
+				updateActionscript();
+			}
+			
+			private function updateFrameFromShape():void{
+				idResizeFrame.update(idShape.x, idShape.y, idShapeWidth.value, idShapeHeight.value);
+			}
+			
+			private function distributeColors():void{
+				var interpolation:String = arrInterpolationMethodString[ idInterpolationMethod.selectedIndex ];
+				if (_colors.length > 2){
+					var s:Sprite = new Sprite();
+					var bmd:BitmapData = new BitmapData(_colors.length,1,false);
+					var mat:Matrix = new Matrix();
+					var firstColor:uint = _colors[0].idColor.selectedColor 
+					var lastColor:uint = _colors[_colors.length-1].idColor.selectedColor
+					mat.createGradientBox(_colors.length,1,0,0,0);
+					s.graphics.beginGradientFill(GradientType.LINEAR,[firstColor,lastColor],[1,1],[0,255],mat,SpreadMethod.PAD,interpolation,0);
+					s.graphics.drawRect(0,0,_colors.length,1);
+					s.graphics.endFill();
+					bmd.draw(s);
+					for (var i:int=1; i<_colors.length-1; i++){
+						_colors[i].idColor.selectedColor = bmd.getPixel(i,0); 
+					}  
+				}
+				updateChange();
+			}
+			
+			private function distributeAlphas():void{
+				var firstAlpha:Number = _colors[0].idAlpha.value;
+				var lastAlpha:Number = _colors[_colors.length-1].idAlpha.value;
+				var inc:Number = (lastAlpha - firstAlpha)/(_colors.length-1);
+				for (var i:int=1;i<_colors.length-1;i++){
+					_colors[i].idAlpha.value = _colors[i-1].idAlpha.value + inc;
+				}
+				updateChange();
+			}
+			
+			private function distributeRatios():void{
+				var firstRatio:int = _colors[0].idRatio.value;
+				var lastRatio:int = _colors[_colors.length-1].idRatio.value;
+				var inc:int = (lastRatio - firstRatio)/(_colors.length-1);
+				for (var i:int=1;i<_colors.length-1;i++){
+					_colors[i].idRatio.value = _colors[i-1].idRatio.value + inc;
+				}
+				updateChange();
+			}
+			
+			public function getDragContraintsInResult(obj:Object):Rectangle
+			{
+				return new Rectangle(0,0,idResult.width-obj.width, idResult.height-obj.height /* - idResult.titleDisplay.height*/)
+			}
+			/*
+			private function clickMatchShapePosition():void{
+			idBoxTX.value = idBoxTY.value = 0;
+			updateChange();
+			}
+			
+			protected function hideShapeAdjustFrame(event:MouseEvent):void
+			{
+			if (idHideResizeFrame.selected){
+			idResizeFrameLayer.visible = false;
+			}else{
+			idResizeFrameLayer.visible = true;
+			}
+			}
+			
+			protected function showMatrixOrigin(event:MouseEvent):void
+			{
+			if (idShowMatrixOrigin.selected){
+			idMatrixOrigin.visible = true;
+			updateMatrixOrigin();
+			}else{
+			idMatrixOrigin.visible = false;
+			}
+			}
+			*/
+			
+			
+			protected function lockAspectRatio(event:MouseEvent):void
+			{
+				if (idLockAspectRatio.selected){
+					idResizeFrame.constrainAR = true;
+				}else{
+					idResizeFrame.constrainAR = false;
+				}
+			}
+			
+			private function updateShapeFromFrame():void{
+				idShape.x = idResizeFrame.frameRect.x;
+				idShape.y = idResizeFrame.frameRect.y; trace(742, idShape.y)
+				idShapeWidth.value = idResizeFrame.frameRect.width;
+				idShapeHeight.value = idResizeFrame.frameRect.height;
+				updateChange();
+			}
+			
+			
+			private function createResultMask():void
+			{
+				idResultViewport.mask = idResultMask;
+				updateResultMask();
+			}
+			
+			private function updateResultMask():void
+			{
+				idResultMask.graphics.clear();
+				idResultMask.graphics.beginFill(0x000000);
+				idResultMask.graphics.drawRect(0,0,idResult.width,idResultViewport.height);
+				idResultMask.graphics.endFill();
+			}
+			
+			private function drawMatrixOrigin():void
+			{
+				/*
+				var mat : Matrix = new Matrix;
+				mat.createGradientBox(2,2, Math.PI/4, 0, 0);
+				
+				idMatrixOrigin.graphics.clear();
+				//idMatrixOrigin.graphics.beginFill(0x000000,0.5);
+				idMatrixOrigin.graphics.lineStyle(0);
+				idMatrixOrigin.graphics.lineGradientStyle(GradientType.LINEAR, [0xffffff, 0xffffff, 0x000000, 0x000000], [1,1,1,1,], [0,64,128,255], mat, SpreadMethod.REPEAT);
+				
+				idMatrixOrigin.graphics.moveTo(-20,-20);
+				idMatrixOrigin.graphics.lineTo(20,20);
+				idMatrixOrigin.graphics.moveTo(20,-20);
+				idMatrixOrigin.graphics.lineTo(-20,20);
+				
+				idMatrixOrigin.graphics.lineStyle(0,0xfffffff);
+				idMatrixOrigin.graphics.beginFill(0xff0000,0);
+				idMatrixOrigin.graphics.drawCircle(0,0,19.5);
+				idMatrixOrigin.graphics.endFill();
+				idMatrixOrigin.graphics.drawCircle(0,0,4.5);
+				idMatrixOrigin.graphics.lineStyle(0,0x00000);
+				idMatrixOrigin.graphics.drawCircle(0,0,6);
+				idMatrixOrigin.graphics.drawCircle(0,0,21);
+				*/
+				//idMatrixOrigin.addEventListener(MouseEvent.MOUSE_DOWN, handleMatrixOriginMouseDown);
+				updateMatrixOrigin();
+			}
+			
+			/*
+			private function handleMatrixOriginMouseDown(e:MouseEvent):void
+			{
+				idMatrixOrigin.startDrag();
+				stage.addEventListener(MouseEvent.MOUSE_UP, handleStageMouseUp);
+				idResult.addEventListener(MouseEvent.MOUSE_MOVE, handleMatrixOriginMove);
+			}
+			
+			private function handleMatrixOriginMove(e:MouseEvent):void
+			{
+				updateBoxTXTY();
+			}
+			*/
+			private function handleStopDrag(e:MouseEvent):void
+			{
+				_dragObject.stopDrag();
+				stage.removeEventListener(MouseEvent.MOUSE_UP, handleStageMouseUp);
+			}
+			
+			private function handleApplicationResize():void{
+				if (idResult && stage){
+					
+					//					if (idResultScroller && idControlsScroller && idCtrlsAndResult && idActionscript){
+					if (idControlsScroller && idCtrlsAndResult && idActionscript){
+						idResult.width = stage.stageWidth - 
+							idControlsScroller.width - 
+							idMainLayout.paddingLeft - 
+							idMainLayout.paddingRight - 
+							idCtrlsAndResult.gap;
+						
+						idControlsScroller.height = idResult.height = 	stage.stageHeight - 
+							idActionscript.height - 
+							idMainLayout.paddingTop - 
+							idMainLayout.paddingBottom - 
+							idMainLayout.gap;
+					}
+					
+					if (idShape){
+						idShape.x = (idResult.width - idShapeWidth.value)/2;
+						idShape.y = (idResult.height /*- idShapeHeight.value-idResult.titleDisplay.height*/)/2;trace(831, idShape.y)
+						updateFrameFromShape();
+						updateResultMask();
+					}
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	
+	
+	
+	
+	
+	
+	<s:layout>
+		<s:VerticalLayout id="idMainLayout" 
+						  horizontalAlign="left" 
+						  verticalAlign="top" 
+						  gap="10" />
+						  <!--paddingTop="10" paddingBottom="10" paddingLeft="10" paddingRight="10"/-->
+	</s:layout>
+	
+	<s:HGroup id="idCtrlsAndResult"  gap="10">
+
+	<s:BorderContainer id="idControlsContainer" backgroundColor="#747474" height="{idControlPanels.height}">
+		
+		
+		
+	<s:Scroller id="idControlsScroller" resize="handleApplicationResize()">
+		<s:VGroup id="idControlPanels" width="245">
+	
+		<!--           SHAPE PANEL           -->
+			
+		<s:Panel title="Draw Shape" 
+				 width="100%" 
+				 textAlign="center" 
+				 minHeight="10"
+				 dropShadowVisible="false" >
+			<s:layout>
+				<s:VerticalLayout paddingTop="10" paddingBottom="10" horizontalAlign="center"/>
+			</s:layout>
+			
+				<s:HGroup  
+						  height="25" 
+						  verticalAlign="middle" 
+						  horizontalAlign="left" 
+						  gap="9"
+						  paddingLeft="1" paddingRight="1">
+					
+					<s:DropDownList id="idDrawShape"
+									selectedIndex="0"								
+									width="100" change="updateChange()" 
+									dataProvider="{arrShapeLabels}"/>
+					
+					<s:NumericStepper id="idShapeWidth" 
+									  width="44" 
+									  minimum="10" maximum="2000" 
+									  stepSize="1" 
+									  change="updateShapeSize()"/>
+					<s:Label text="X"/>
+					<s:NumericStepper id="idShapeHeight" 
+									  width="44" 
+									  minimum="10" maximum="2000" 
+									  stepSize="1" 
+									  change="updateShapeSize()"/>
+				</s:HGroup>
+					
+				<s:HGroup gap="26">
+					<s:CheckBox id="idLockAspectRatio" 
+								label="Lock Aspect Ratio"
+								click="lockAspectRatio(event)"/>
+					<s:CheckBox id="idLockSquare" 
+								label="Width = Height"
+							click="lockAspectRatio(event)"/>
+				</s:HGroup>
+			
+		</s:Panel>
+		
+			
+		<!--             MATRIX BOX PANEL            -->
+			
+		<s:Panel id="idMatrixPanel" 
+				 title="Matrix Gradient Box" 
+				 width="100%" 
+				 textAlign="center" 
+				 dropShadowVisible="false" 
+				 enabled="true" borderVisible="true">
+			<s:layout>
+				<s:VerticalLayout horizontalAlign="center" paddingTop="10" paddingBottom="10"/>
+			</s:layout>
+				
+				
+			
+				<s:CheckBox label="Match Gradient Box Size to Shape" id="idMatchShapeSize" click="updateChange()" selected="true"/>
+				<Components:SliderStepper id="idBoxWidth"
+										  label="Width :" 
+										  min="2" max="999" 
+										  step="1" 
+										  change="updateMatrixOrigin"
+										  value="500"/>
+				<Components:SliderStepper id="idBoxHeight"
+										  label="Height :" 
+										  min="2" max="999" 
+										  step="1" 
+										  change="updateMatrixOrigin"
+										  value="500"/>
+				<Components:SliderStepper id="idBoxRotation"
+										  label="Rotate :" 
+										  min="0" max="360" 
+										  step="1" 
+										  change="updateMatrixOrigin"
+										  value="0"/>
+				<Components:SliderStepper id="idBoxTX"
+										  label="TX :" 
+										  min="-500" max="500" 
+										  step="1" 
+										  change="updateMatrixOrigin"
+										  value="0"/>
+				<Components:SliderStepper id="idBoxTY"
+										  label="TY :" 
+										  min="-500" max="500" 
+										  step="1" 
+										  change="updateMatrixOrigin"
+										  value="0"/>
+				<!--s:CheckBox id="idMatchShapePosition"
+							label="Center Gradient Box in Shape"  
+							click="clickMatchShapePosition()"/-->
+				<s:Group height="1"/>
+		</s:Panel>
+		
+		<!--            GRADIENT FILL PANEL            -->
+			
+		<s:Panel title="Gradient Fill"
+				 width="100%" 
+				 textAlign="center"
+				 dropShadowVisible="false">
+			<s:layout>
+				<s:VerticalLayout horizontalAlign="center" gap="8" paddingTop="10" paddingBottom="20"/>
+			</s:layout>
+	
+				<s:DropDownList id="idGradientType"
+								width="96" 
+								selectedIndex="0" 
+								change="updateChange()" dropShadowVisible="false">
+					<mx:ArrayCollection>
+						<fx:String>LINEAR</fx:String>
+						<fx:String>RADIAL</fx:String>
+					</mx:ArrayCollection>
+				</s:DropDownList>
+				
+				
+				
+			
+			<s:CheckBox id="idMatrixNull" 
+						x="10" 
+						label="Matrix = null" 
+						click="updateChange()" selected="false"/>
+			
+			<s:HGroup gap="6">
+				<s:VGroup horizontalAlign="left" gap="0">
+					<s:Label text="SpreadMethod:"/>
+					<s:DropDownList id="idSpreadMethod"
+									width="101"
+									selectedIndex="0"
+									change="updateChange()"
+									dataProvider="{arrSpreadMethodText}">
+					
+				</s:DropDownList>
+				</s:VGroup>
+				<s:VGroup horizontalAlign="left" gap="0">
+					<s:Label text="InterpolationMethod:"/>
+					<s:DropDownList id="idInterpolationMethod"
+									selectedIndex="0"
+									width="101"
+									change="updateChange()"
+									dataProvider="{arrInterpolationMethodText}">
+				</s:DropDownList>
+				</s:VGroup>
+			</s:HGroup>
+			
+			<Components:SliderStepper id="idFocalPoint"
+									  precision="1"
+									  label="Focus :"
+									  min="-1" max="1" 
+									  step="0.1"
+									  y="232"  x="10"
+									  change="updateChange"
+									  adjustWidth = "-17"/>
+			
+			<s:HGroup verticalAlign="middle" gap="20">
+				<s:Label text="Color / Alpha / Ratio triplets :"/>
+				<s:NumericStepper id="idArraySize" minimum="2" maximum="15" change="addRemoveColors()"/>
+			</s:HGroup>
+			
+			
+			<s:HGroup gap="10">
+				<s:VGroup width="15" gap="10" paddingTop="6">
+					<s:Button label="C" width="12" height="15" id="idDistributeColors" click="distributeColors()" toolTip="Distribute Colors between first and last selected values"/>
+					<s:Button label="A" width="12" height="15" id="idDistributeAlphas" click="distributeAlphas()" toolTip="Distribute Alphas between first and last selected values"/>
+					<s:Button label="R" width="12" height="15" id="idDistributeRatios" click="distributeRatios()" toolTip="Distribute Ratios between first and last selected values"/>
+				</s:VGroup>
+				
+				<s:BorderContainer id="idColorsContainer" 
+								   width="181" height="75"
+								   backgroundColor="#626161">
+					<s:Scroller width="179">
+						<s:HGroup id="idGroupColors"
+								  
+								  gap="1" 
+								  
+								  verticalAlign="top" >
+							<Components:ColorAlphaRatio id="fillColor1" change="updateChange"/>
+							<Components:ColorAlphaRatio id="fillColor2" change="updateChange"/>
+						</s:HGroup>
+					</s:Scroller>
+				</s:BorderContainer>
+			</s:HGroup>
+		</s:Panel>
+			
+	</s:VGroup>
+	</s:Scroller>
+	</s:BorderContainer>
+
+		<!--            RESULT PANEL            -->
+		
+		<s:Panel id="idResult" 
+			 title="Result" 
+			 textAlign="center"
+			 dropShadowVisible="false" 
+			 backgroundColor="{idBackgroundColorPicker.selectedColor}" height="653" width="339">
+
+			<s:HGroup id="idTitleBarGroup" x="7" y="-27">
+				<mx:ColorPicker id="idBackgroundColorPicker" selectedColor="0x444444"/>
+				<mx:MenuBar id="idMenuBar" labelField="@label" textAlign="left" dataProvider="{idOptionsMenu}" itemClick="handleMenu(event)"/>
+			</s:HGroup>
+			
+			
+	
+			<s:Group id="idResultViewport" x="0" width="100%" height="100%">
+
+			
+							
+					<mx:Image id="idShape"  
+							  mouseOver="Mouse.cursor=MouseCursor.HAND"
+							  mouseOut="Mouse.cursor=MouseCursor.ARROW"/>
+					
+					
+					<!--s:Group id="idResizeFrameLayer" x="0" y="0" width="100%" height="100%">
+						<Components:ResizeFrame id="idResizeFrame" 
+										  change="updateShapeFromFrame"
+										  color="0xffffff"
+										  x="0" y="0" height="100%" width="100%"/>
+					</s:Group-->
+
+					<Components:ResizeFrame id="idResizeFrame" 
+										change="updateShapeFromFrame"
+										x="0" y="0" height="100%" width="100%"/>
+				
+				
+					<!--mx:Image id="idMatrixOrigin2" 
+						  x="0" y="0" 
+						  mouseOver="Mouse.cursor=MouseCursor.BUTTON"
+						  mouseOut="Mouse.cursor=MouseCursor.ARROW"/-->
+
+				
+				<Components:MatrixOrigin id="idMatrixOrigin" 
+						  x="140" y="140" 
+						  change = "updateMatrixFromOrigin"
+						  mouseOver="Mouse.cursor=MouseCursor.BUTTON"
+						  mouseOut="Mouse.cursor=MouseCursor.ARROW"/>
+				
+				
+			
+				<s:Group id="MaskLayer" x="0" y="0">
+					<s:Graphic id="idResultMask" x="0" y="0"/>
+				</s:Group>
+
+		</s:Group>
+	
+			
+	</s:Panel>
+	</s:HGroup>
+	
+	<!--                     ACTIONSCRIPT PANEL                        -->
+	<Components:ActionscriptPanel id="idActionscript" width="100%"/>
+ 
+</s:WindowedApplication>

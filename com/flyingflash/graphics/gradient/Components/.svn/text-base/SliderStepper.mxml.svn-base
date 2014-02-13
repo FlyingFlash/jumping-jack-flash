@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" height="25" textAlign="center" contentBackgroundAlpha="0.0">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			private var _precision:int=0;
+			private var _fnChangeListener:Function;
+			
+			public function set precision(n:int):void{
+				_precision=n;	
+			}
+			
+			public function set label(label:String):void{
+				idLabel.text = label;
+			}
+			
+			public function set value(val:Number):void{
+				idStepper.value = idSlider.value = val;
+			}
+			
+			public function set min(val:Number):void{
+				idStepper.minimum = idSlider.minimum = val;
+			}
+			
+			public function set max(val:Number):void{
+				idStepper.maximum = idSlider.maximum = val;
+			}
+			
+			public function set step(val:Number):void{
+				idStepper.stepSize = idSlider.stepSize = val;
+			}
+						
+			public function get value():Number{
+				return idStepper.value;
+			}
+			
+			public function set change(fnChangeListener:Function):void{
+				_fnChangeListener = fnChangeListener;
+			}
+			
+			protected function changeValue(event:Event):void
+			{
+				idSlider.value = idStepper.value = event.target.value;
+				if (_fnChangeListener != null){
+					_fnChangeListener();
+				}
+			}
+
+			protected function oneDecimal(n:Number):String{
+				if (_precision==0){
+					return String(n);
+				}
+				var val:String = String (Math.round(n * Math.pow(10,_precision)) / Math.pow(10,_precision));
+				var dot:int = val.indexOf(".");
+				if(dot == -1){
+					val += ".0";
+				}
+				return val;
+			}
+			
+			public function set adjustWidth(w:int):void{
+				idSlider.width = 119 + w;
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Label text="Label :" id="idLabel" width="43" textAlign="left"/>
+	<s:HSlider id="idSlider" 
+			   width="119" 
+			   chromeColor="#808080" 
+			   value="0" 
+			   stepSize="1"
+			   change="changeValue(event)"   liveDragging="true"/>
+	<s:NumericStepper id="idStepper" 
+					  width="50" 
+					  stepSize="1" 
+					  change="changeValue(event)"
+					  valueFormatFunction="oneDecimal"/>
+</s:Group>
